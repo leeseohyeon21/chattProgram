@@ -1,6 +1,6 @@
 ## Chatting Program
 
-this program is example in book.<br>
+this program is an example in book.<br>
 you check this book below <strong>reference</strong><br>
 
 I followed with and dockerized that completed program
