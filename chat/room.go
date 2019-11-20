@@ -3,10 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
-	
-	"github.com/stretchr/objx"
-	"github.com/matryer/goblueprints/chapter1/trace"
+
 	"github.com/gorilla/websocket"
+	"github.com/matryer/goblueprints/chapter1/trace"
 )
 
 const (
@@ -15,19 +14,20 @@ const (
 )
 
 type room struct {
-	forward chan *message
+	forward chan []byte
 	join    chan *client
 	leave   chan *client
 	clients map[*client]bool
-	tracer  trace.Tracer
+	tracer trace.Tracer
 }
 
 func newRoom() *room {
 	return &room{
-		forward: make(chan *message),
+		forward: make(chan []byte),
 		join:    make(chan *client),
 		leave:   make(chan *client),
 		clients: make(map[*client]bool),
+		tracer: trace.Off(),
 	}
 }
 
@@ -40,9 +40,9 @@ func (r *room) run() {
 		case client := <-r.leave:
 			delete(r.clients, client)
 			close(client.send)
-			r.tracer.Trace("Client left")
+			r.tracer.Trace("client left")
 		case msg := <-r.forward:
-			r.tracer.Trace("Message received: ", msg.Message)
+			r.tracer.Trace("Message received: ", string(msg))
 			for client := range r.clients {
 				client.send <- msg
 				r.tracer.Trace(" -- sent to client")
@@ -60,17 +60,10 @@ func (r *room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	authCookie, err := req.Cookie("auth")
-	if err != nil {
-		log.Fatal("Failed to get auth cookie:", err)
-		return
-	}
-
 	client := &client{
-		socket:   socket,
-		send:     make(chan *message, messageBufferSize),
-		room:     r,
-		userData: objx.MustFromBase64(authCookie.Value),
+		socket: socket,
+		send:   make(chan []byte, messageBufferSize),
+		room:   r,
 	}
 
 	r.join <- client
